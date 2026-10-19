@@ -1,0 +1,124 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STUDENT
+  TEACHER
+  ADMIN
+}
+
+enum AssessmentKind {
+  BASELINE
+  FINAL
+}
+
+enum TaskStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  DONE
+}
+
+model User {
+  id               String             @id @default(cuid())
+  email            String             @unique
+  passwordHash     String
+  name             String?
+  role             Role               @default(STUDENT)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  assessments      Assessment[]
+  diaryEntries     DiaryEntry[]
+  weeklyWins       WeeklyWin[]
+  taskProgress     TaskProgress[]
+  studentsAssigned TeacherStudent[]    @relation("TeacherAssignments")
+  teachersAssigned TeacherStudent[]    @relation("StudentAssignments")
+}
+
+model Assessment {
+  id          String         @id @default(cuid())
+  userId      String
+  kind        AssessmentKind
+  answers     Json
+  scores      Json?
+  profileData Json?
+  completedAt DateTime       @default(now())
+  createdAt   DateTime       @default(now())
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, kind, completedAt])
+}
+
+model ProgramTask {
+  id          String         @id @default(cuid())
+  weekNumber  Int
+  title       String
+  description String
+  sortOrder   Int            @default(0)
+  isActive    Boolean        @default(true)
+  progress    TaskProgress[]
+
+  @@unique([weekNumber, sortOrder])
+  @@index([weekNumber, isActive])
+}
+
+model TaskProgress {
+  id          String     @id @default(cuid())
+  userId      String
+  taskId      String
+  status      TaskStatus @default(NOT_STARTED)
+  note        String?
+  completedAt DateTime?
+  updatedAt   DateTime   @updatedAt
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task        ProgramTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, taskId])
+  @@index([userId, status])
+}
+
+model DiaryEntry {
+  id        String   @id @default(cuid())
+  userId    String
+  entryDate DateTime
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, entryDate])
+  @@index([userId, entryDate])
+}
+
+model WeeklyWin {
+  id         String   @id @default(cuid())
+  userId     String
+  weekStart  DateTime
+  winOne     String
+  winTwo     String
+  winThree   String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, weekStart])
+  @@index([userId, weekStart])
+}
+
+model TeacherStudent {
+  id        String   @id @default(cuid())
+  teacherId String
+  studentId String
+  createdAt DateTime @default(now())
+  teacher   User     @relation("TeacherAssignments", fields: [teacherId], references: [id], onDelete: Cascade)
+  student   User     @relation("StudentAssignments", fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([teacherId, studentId])
+  @@index([teacherId])
+  @@index([studentId])
+}
